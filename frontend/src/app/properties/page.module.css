@@ -1,0 +1,131 @@
+.page {
+  padding: var(--space-8) 0 var(--space-16);
+}
+
+.layout {
+  display: grid;
+  grid-template-columns: 280px 1fr;
+  gap: var(--space-8);
+  align-items: start;
+}
+
+/* Sidebar */
+.sidebar {
+  position: sticky;
+  top: calc(var(--navbar-height) + var(--space-8));
+  background: var(--bg-card);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-lg);
+  padding: var(--space-6);
+}
+
+.sidebarTitle {
+  font-size: var(--fs-lg);
+  font-weight: var(--fw-semibold);
+  margin-bottom: var(--space-6);
+}
+
+.filterGroup {
+  margin-bottom: var(--space-6);
+}
+
+.bhkGrid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: var(--space-2);
+}
+
+.bhkBtn {
+  padding: var(--space-2) var(--space-3);
+  background: var(--bg-primary);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-md);
+  color: var(--text-secondary);
+  font-size: var(--fs-sm);
+  font-weight: var(--fw-medium);
+  cursor: pointer;
+  transition: all var(--transition-fast);
+}
+
+.bhkBtn:hover {
+  border-color: var(--color-primary-600);
+}
+
+.bhkActive {
+  background: var(--color-primary-600);
+  border-color: var(--color-primary-500);
+  color: white;
+}
+
+.priceInputs {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.priceSep {
+  color: var(--text-muted);
+  flex-shrink: 0;
+}
+
+/* Results */
+.results {
+  min-height: 60vh;
+}
+
+.resultsHeader {
+  margin-bottom: var(--space-6);
+}
+
+.resultsTitle {
+  font-size: var(--fs-xl);
+  font-weight: var(--fw-semibold);
+}
+
+.grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+  gap: var(--space-6);
+}
+
+.skeleton {
+  height: 350px;
+}
+
+.loadMore {
+  text-align: center;
+  margin-top: var(--space-10);
+}
+
+.empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: var(--space-16);
+  text-align: center;
+}
+
+.emptyIcon {
+  font-size: 3rem;
+  margin-bottom: var(--space-4);
+}
+
+.emptyText {
+  color: var(--text-muted);
+  margin-bottom: var(--space-4);
+}
+
+@media (max-width: 768px) {
+  .layout {
+    grid-template-columns: 1fr;
+  }
+
+  .sidebar {
+    position: static;
+  }
+
+  .grid {
+    grid-template-columns: 1fr;
+  }
+}

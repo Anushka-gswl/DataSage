@@ -1,0 +1,120 @@
+# ==============================================================================
+# DataSage — Docker Compose (Local Development)
+# ==============================================================================
+# Usage:
+#   docker compose up -d          # Start all services
+#   docker compose logs -f        # Follow logs
+#   docker compose down -v        # Stop and remove volumes
+#
+# See docs/24-deployment.md for production deployment.
+# ==============================================================================
+
+services:
+  # --- PostgreSQL + PostGIS ---------------------------------------------------
+  postgres:
+    image: postgis/postgis:16-3.4
+    container_name: datasage-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-datasage}
+      POSTGRES_USER: ${POSTGRES_USER:-datasage}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-change-me}
+    ports:
+      - "${DOCKER_POSTGRES_PORT:-5432}:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-datasage} -d ${POSTGRES_DB:-datasage}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # --- Redis ------------------------------------------------------------------
+  redis:
+    image: redis:7-alpine
+    container_name: datasage-redis
+    restart: unless-stopped
+    command: >
+      redis-server
+      --maxmemory 256mb
+      --maxmemory-policy allkeys-lru
+    ports:
+      - "${DOCKER_REDIS_PORT:-6379}:6379"
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # --- Backend API (FastAPI) --------------------------------------------------
+  backend:
+    build:
+      context: .
+      dockerfile: docker/backend.Dockerfile
+    container_name: datasage-backend
+    restart: unless-stopped
+    env_file:
+      - .env
+    environment:
+      POSTGRES_HOST: postgres
+      REDIS_HOST: redis
+      PYTHONPATH: /app/backend
+    ports:
+      - "${DOCKER_BACKEND_PORT:-8000}:8000"
+    volumes:
+      - ./backend:/app/backend
+      - ./ml/models:/app/ml/models:ro
+      - ./data:/app/data:ro
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    command: >
+      uvicorn datasage.main:app
+      --host 0.0.0.0
+      --port 8000
+      --reload
+      --log-level debug
+
+  # --- Frontend (Next.js) -----------------------------------------------------
+  frontend:
+    build:
+      context: .
+      dockerfile: docker/frontend.Dockerfile
+    container_name: datasage-frontend
+    restart: unless-stopped
+    environment:
+      NEXT_PUBLIC_API_URL: http://localhost:${DOCKER_BACKEND_PORT:-8000}/api/v1
+      NEXT_PUBLIC_MAP_TILE_URL: https://tile.openstreetmap.org/{z}/{x}/{y}.png
+    ports:
+      - "${DOCKER_FRONTEND_PORT:-3000}:3000"
+    volumes:
+      - ./frontend:/app
+      - /app/node_modules   # Anonymous volume to prevent host node_modules override
+      - /app/.next           # Anonymous volume for build cache
+    depends_on:
+      - backend
+    command: npm run dev
+
+  # --- Nginx Reverse Proxy (Production-like routing) --------------------------
+  # Uncomment for production-like local testing:
+  # nginx:
+  #   image: nginx:1.25-alpine
+  #   container_name: datasage-nginx
+  #   restart: unless-stopped
+  #   ports:
+  #     - "80:80"
+  #   volumes:
+  #     - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
+  #   depends_on:
+  #     - backend
+  #     - frontend
+
+volumes:
+  postgres_data:
+    driver: local
+  redis_data:
+    driver: local

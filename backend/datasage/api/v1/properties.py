@@ -1,0 +1,86 @@
+"""Property search and detail endpoints."""
+
+from __future__ import annotations
+
+from fastapi import APIRouter, Depends, Query
+
+from datasage.api.deps import get_current_user_optional
+from datasage.core.database import get_session
+from datasage.schemas import CursorPagination, PaginatedResponse
+from datasage.schemas.property import (
+    PropertyDetailResponse,
+    PropertySearchParams,
+    PropertySummaryResponse,
+    PropertyType,
+    SortField,
+    SortOrder,
+)
+from datasage.services.property_service import PropertyService
+
+router = APIRouter()
+
+
+@router.get("", response_model=PaginatedResponse[PropertySummaryResponse])
+async def search_properties(
+    locality_id: int | None = None,
+    city_id: int | None = None,
+    bhk: int | None = Query(None, ge=1, le=10),
+    min_price: int | None = Query(None, ge=0),
+    max_price: int | None = Query(None, ge=0),
+    property_type: PropertyType | None = None,
+    min_area: float | None = Query(None, ge=0),
+    max_area: float | None = None,
+    furnishing: str | None = None,
+    sort: SortField = SortField.RELEVANCE,
+    order: SortOrder = SortOrder.DESC,
+    limit: int = Query(20, ge=1, le=100),
+    cursor: str | None = None,
+    session=Depends(get_session),
+    user=Depends(get_current_user_optional),
+):
+    """Search properties with filters, sorting, and pagination."""
+    service = PropertyService(session)
+
+    # Map sort field to model attribute
+    sort_map = {
+        SortField.LISTING_PRICE: "listing_price",
+        SortField.AREA_SQFT: "area_sqft",
+        SortField.LISTED_AT: "listed_at",
+        SortField.LOCATION_SCORE: "cached_location_score",
+        SortField.RELEVANCE: "listed_at",  # Default sort
+    }
+
+    summaries, next_cursor, total = await service.search(
+        city_id=city_id,
+        locality_id=locality_id,
+        bhk=bhk,
+        min_price=min_price,
+        max_price=max_price,
+        property_type=property_type.value if property_type else None,
+        min_area=min_area,
+        max_area=max_area,
+        furnishing=furnishing,
+        sort=sort_map.get(sort, "listed_at"),
+        order=order.value,
+        limit=limit,
+        cursor=cursor,
+    )
+
+    return PaginatedResponse(
+        data=summaries,
+        pagination=CursorPagination(
+            next_cursor=next_cursor,
+            has_more=next_cursor is not None,
+            total_count=total,
+        ),
+    )
+
+
+@router.get("/{property_id}", response_model=PropertyDetailResponse)
+async def get_property_detail(
+    property_id: str,
+    session=Depends(get_session),
+):
+    """Get full property detail by ID."""
+    service = PropertyService(session)
+    return await service.get_detail(property_id)
